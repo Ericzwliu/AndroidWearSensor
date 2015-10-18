@@ -20,24 +20,27 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.Timestamp;
 
-public class MainActivity extends Activity implements SensorEventListener{
+public class MainActivity extends Activity {
 
     private TextView mTextView;
     private Button btnStart;
     private Button btnStop;
     private SensorManager mSensorManager = null;
-    private Sensor mSAccelerometer = null;
+    private Sensor mSAccelerometer = null, mSGyrosc = null;
     private String LOG_TAG = "Gsensor_Test";
     private final static int X_INDEX = 0;
     private final static int Y_INDEX = 1;
     private final static int Z_INDEX = 2;
-    private GSensorRawDataCollector collector;
+    private GSensorRawDataCollector aCollector,gCollector;
+
+    private SensorEventListener aSensorEvent = null, gSensorEvent = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        collector = new GSensorRawDataCollector();
+        aCollector = new GSensorRawDataCollector();
+        gCollector = new GSensorRawDataCollector();
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
@@ -50,25 +53,81 @@ public class MainActivity extends Activity implements SensorEventListener{
                     @Override
                     public void onClick(View v) {
                         mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-                        mSAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
                         /**
-                         *  SENSOR_DELAY_FASTEST    -> 0 ms : as soon as possible
-                         *  SENSOR_DELAY_GAME       -> 20 ms
-                         *  SENSOR_DELAY_UI         -> 60 ms
-                         *  SENSOR_DELAY_NORMAL     -> 200 ms
-                         */
-                        mSensorManager.registerListener(MainActivity.this, mSAccelerometer, SensorManager.SENSOR_DELAY_UI);
+                                                 *  SENSOR_DELAY_FASTEST    -> 0 ms : as soon as possible
+                                                 *  SENSOR_DELAY_GAME       -> 20 ms
+                                                 *  SENSOR_DELAY_UI         -> 60 ms
+                                                 *  SENSOR_DELAY_NORMAL     -> 200 ms
+                                                 */
+
+                        if( (mSAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ) != null ) {
+
+                            aSensorEvent = new SensorEventListener() {
+                                @Override
+                                public void onSensorChanged(SensorEvent event) {
+                                    Log.d(LOG_TAG," acceletometer event.values.length : " + event.values.length);
+
+                                    String[] data = new String[4];
+                                    data[GSensorRawDataCollector.TIMESTAMP_INDEX] = getCurrentTimeStamp()+"";
+                                    data[GSensorRawDataCollector.X_INDEX] = event.values[X_INDEX] + "";
+                                    data[GSensorRawDataCollector.Y_INDEX] = event.values[Y_INDEX] + "";
+                                    data[GSensorRawDataCollector.Z_INDEX] = event.values[Z_INDEX] + "";
+
+                                    String strForValues = "X : " + event.values[X_INDEX] + "\n" + "Y : " + event.values[Y_INDEX] + "\n" + "Z : " + event.values[Z_INDEX];
+                                    mTextView.setText(strForValues);
+
+                                    aCollector.addData( data );
+                                }
+
+                                @Override
+                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                                }
+                            };
+                            mSensorManager.registerListener(aSensorEvent, mSAccelerometer, SensorManager.SENSOR_DELAY_UI);
+                        }
+
+                        if( ( mSGyrosc = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) ) != null) {
+                            gSensorEvent = new SensorEventListener() {
+                                @Override
+                                public void onSensorChanged(SensorEvent event) {
+                                    Log.d(LOG_TAG," gyroscope event.values.length : " + event.values.length);
+
+                                    String[] data = new String[4];
+                                    data[GSensorRawDataCollector.TIMESTAMP_INDEX] = getCurrentTimeStamp()+"";
+                                    data[GSensorRawDataCollector.X_INDEX] = event.values[X_INDEX] + "";
+                                    data[GSensorRawDataCollector.Y_INDEX] = event.values[Y_INDEX] + "";
+                                    data[GSensorRawDataCollector.Z_INDEX] = event.values[Z_INDEX] + "";
+
+                                    gCollector.addData( data );
+                                }
+
+                                @Override
+                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                                }
+                            };
+                            mSensorManager.registerListener(gSensorEvent, mSGyrosc, SensorManager.SENSOR_DELAY_UI);
+                        }
+
+
+
+
                     }
                 });
 
                 btnStop.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        mSensorManager.unregisterListener(MainActivity.this);
-                        Toast.makeText(MainActivity.this, "Unregister accelerometer Listener", Toast.LENGTH_SHORT).show();
+                        if(aSensorEvent != null) mSensorManager.unregisterListener(aSensorEvent);
+                        if(gSensorEvent != null) mSensorManager.unregisterListener(gSensorEvent);
 
-                        exportRawDataCSV( collector );
+                        aSensorEvent = null; gSensorEvent = null;
+
+                        Toast.makeText(MainActivity.this, "Unregister event sensors  Listener", Toast.LENGTH_SHORT).show();
+
+                        exportRawDataCSV();
                     }
                 });
             }
@@ -79,7 +138,8 @@ public class MainActivity extends Activity implements SensorEventListener{
     protected void onPause() {
         super.onPause();
         try {
-            mSensorManager.unregisterListener(MainActivity.this);
+            if(aSensorEvent != null) mSensorManager.unregisterListener(aSensorEvent);
+            if(gSensorEvent != null) mSensorManager.unregisterListener(gSensorEvent);
         }catch(NullPointerException e){
 
         } finally {
@@ -87,29 +147,7 @@ public class MainActivity extends Activity implements SensorEventListener{
         }
     }
 
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        Log.d(LOG_TAG,"event.values.length : " + event.values.length);
-
-        String[] data = new String[4];
-        data[GSensorRawDataCollector.TIMESTAMP_INDEX] = getCurrentTimeStamp()+"";
-        data[GSensorRawDataCollector.X_INDEX] = event.values[X_INDEX] + "";
-        data[GSensorRawDataCollector.Y_INDEX] = event.values[Y_INDEX] + "";
-        data[GSensorRawDataCollector.Z_INDEX] = event.values[Z_INDEX] + "";
-
-        String strForValues = "X : " + event.values[X_INDEX] + "\n" + "Y : " + event.values[Y_INDEX] + "\n" + "Z : " + event.values[Z_INDEX];
-        mTextView.setText(strForValues);
-
-        collector.addData( data );
-
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-    }
-
-    public void exportRawDataCSV( final GSensorRawDataCollector c ) {
+    public void exportRawDataCSV() {
         File folder = new File(Environment.getExternalStorageDirectory() + "/GSensorRawData");
 
         boolean var = false;
@@ -131,28 +169,59 @@ public class MainActivity extends Activity implements SensorEventListener{
             public void run() {
                 try {
                     FileWriter fw = new FileWriter(filename);
-                    fw.append("TimeStamp");
-                    fw.append(',');
-                    fw.append("X");
-                    fw.append(',');
-                    fw.append("Y");
-                    fw.append(',');
-                    fw.append("Z");
-                    fw.append(',');
-                    fw.append('\n');
-
-                    for(int i=0; i<c.size(); i++) {
-                        String[] data = c.getRecord(i);
-                        fw.append(data[GSensorRawDataCollector.TIMESTAMP_INDEX]);
+                    if(aCollector != null) {
+                        fw.append("Accelerometer TimeStamp");
                         fw.append(',');
-                        fw.append(data[GSensorRawDataCollector.X_INDEX]);
+                        fw.append("X(A)");
                         fw.append(',');
-                        fw.append(data[GSensorRawDataCollector.Y_INDEX]);
+                        fw.append("Y(A)");
                         fw.append(',');
-                        fw.append(data[GSensorRawDataCollector.Z_INDEX]);
+                        fw.append("Z(A)");
                         fw.append(',');
                         fw.append('\n');
+
+                        for(int i=0; i< aCollector.size(); i++) {
+                            String[] data = aCollector.getRecord(i);
+                            fw.append(data[GSensorRawDataCollector.TIMESTAMP_INDEX]);
+                            fw.append(',');
+                            fw.append(data[GSensorRawDataCollector.X_INDEX]);
+                            fw.append(',');
+                            fw.append(data[GSensorRawDataCollector.Y_INDEX]);
+                            fw.append(',');
+                            fw.append(data[GSensorRawDataCollector.Z_INDEX]);
+                            fw.append(',');
+                            fw.append('\n');
+                        }
+                        fw.append('\n');
                     }
+
+                    if(gCollector != null) {
+                        fw.append("Gyroscope TimeStamp");
+                        fw.append(',');
+                        fw.append("X(G)");
+                        fw.append(',');
+                        fw.append("Y(G)");
+                        fw.append(',');
+                        fw.append("Z(G)");
+                        fw.append(',');
+                        fw.append('\n');
+
+                        for(int i=0; i<gCollector.size(); i++) {
+                            String[] data = gCollector.getRecord(i);
+                            fw.append(data[GSensorRawDataCollector.TIMESTAMP_INDEX]);
+                            fw.append(',');
+                            fw.append(data[GSensorRawDataCollector.X_INDEX]);
+                            fw.append(',');
+                            fw.append(data[GSensorRawDataCollector.Y_INDEX]);
+                            fw.append(',');
+                            fw.append(data[GSensorRawDataCollector.Z_INDEX]);
+                            fw.append(',');
+                            fw.append('\n');
+                        }
+                        fw.append('\n');
+                    }
+
+
 
                     fw.close();
                 } catch( IOException e ) {
