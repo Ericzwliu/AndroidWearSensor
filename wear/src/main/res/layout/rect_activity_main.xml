@@ -4,28 +4,19 @@
     android:layout_height="match_parent" android:orientation="vertical"
     tools:context=".MainActivity" tools:deviceIds="wear_square">
 
-    <TextView android:id="@+id/text" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" android:text="@string/hello_square" />
-
     <FrameLayout
+        android:id="@+id/mFrameLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent">
 
-        <Button
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="start"
-            android:id="@+id/btnStart"
-            android:layout_gravity="left|center_vertical"/>
+        <TextView android:id="@+id/text" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@string/hello_square" />
 
-        <Button
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="stop"
-            android:id="@+id/btnStop"
-            android:layout_gravity="right|center_vertical" />
+        <android.support.wearable.view.DismissOverlayView
+            android:id="@+id/dismiss_overlay"
+            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            />
     </FrameLayout>
 
 </LinearLayout>
