@@ -98,6 +98,8 @@ public class MainActivity extends WearableActivity {
                     @Override
                     public void onClick(View v) {
                         String key = spItem[sp.getSelectedItemPosition()];
+                        sp.setVisibility(View.GONE);
+                        mBtnStart.setVisibility(View.GONE);
 
                         File folder = new File(Environment.getExternalStorageDirectory() + "/GSensorRawData");
 
