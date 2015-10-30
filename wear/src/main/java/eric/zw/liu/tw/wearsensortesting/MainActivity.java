@@ -17,8 +17,11 @@ import android.support.wearable.view.DismissOverlayView;
 import android.support.wearable.view.WatchViewStub;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,6 +47,9 @@ public class MainActivity extends WearableActivity {
     private PendingIntent mAmbientStatePendingIntent;
     private DismissOverlayView mDismissOverlayView;
     private FrameLayout mFrameLayout;
+    private Spinner sp;
+    private String [] spItem = {"Sleeping","Writing","Typing","Walking","Running"};
+    private Button mBtnStart;
 
     private SensorEventListener aSensorEvent = null, gSensorEvent = null;
 
@@ -60,18 +66,7 @@ public class MainActivity extends WearableActivity {
 
         setContentView(R.layout.activity_main);
 
-        File folder = new File(Environment.getExternalStorageDirectory() + "/GSensorRawData");
 
-        boolean var = false;
-        if(!folder.exists()) var = folder.mkdir();
-
-        final String aFilename = folder.toString() + "/" + "RawData_A" + getCurrentTimeStamp() + ".csv";
-        final String gFilename = folder.toString() + "/" + "RawData_G" + getCurrentTimeStamp() + ".csv";
-        Log.d(LOG_TAG,"aFilename : " + aFilename);
-        Log.d(LOG_TAG,"gFilename : " + gFilename);
-
-        aCollector = new ASensorRawDataCollector(aFilename);
-        gCollector = new GSensorRawDataCollector(gFilename);
 
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
@@ -94,67 +89,98 @@ public class MainActivity extends WearableActivity {
 
                 mTextView = (TextView) stub.findViewById(R.id.text);
 
-                /**
-                                 *  SENSOR_DELAY_FASTEST    -> 0 ms : as soon as possible
-                                 *  SENSOR_DELAY_GAME       -> 20 ms
-                                 *  SENSOR_DELAY_UI         -> 60 ms
-                                 *  SENSOR_DELAY_NORMAL     -> 200 ms
-                                 */
-                mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-                if( (mSAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ) != null ) {
+                sp = (Spinner)stub.findViewById(R.id.mSpinner);
+                sp.setAdapter(new ArrayAdapter<String>(MainActivity.this, android.R.layout.simple_spinner_item, spItem));
 
-                    aSensorEvent = new SensorEventListener() {
-                        @Override
-                        public void onSensorChanged(SensorEvent event) {
+
+                mBtnStart = (Button)stub.findViewById(R.id.mBtnStart);
+                mBtnStart.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        String key = spItem[sp.getSelectedItemPosition()];
+
+                        File folder = new File(Environment.getExternalStorageDirectory() + "/GSensorRawData");
+
+                        boolean var = false;
+                        if(!folder.exists()) var = folder.mkdir();
+
+                        final String aFilename = folder.toString() + "/" + "RawData_"+ key + "_A_" + getCurrentTimeStamp() + ".csv";
+                        final String gFilename = folder.toString() + "/" + "RawData_" + key + "_G_" + getCurrentTimeStamp() + ".csv";
+                        Log.d(LOG_TAG,"aFilename : " + aFilename);
+                        Log.d(LOG_TAG,"gFilename : " + gFilename);
+
+                        aCollector = new ASensorRawDataCollector(aFilename);
+                        gCollector = new GSensorRawDataCollector(gFilename);
+
+                        /**
+                                                 *  SENSOR_DELAY_FASTEST    -> 0 ms : as soon as possible
+                                                 *  SENSOR_DELAY_GAME       -> 20 ms
+                                                 *  SENSOR_DELAY_UI         -> 60 ms
+                                                 *  SENSOR_DELAY_NORMAL     -> 200 ms
+                                                 */
+                        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+                        if( (mSAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ) != null ) {
+
+                            aSensorEvent = new SensorEventListener() {
+                                @Override
+                                public void onSensorChanged(SensorEvent event) {
 //                            Log.d(LOG_TAG," acceletometer event.values.length : " + event.values.length);
 
-                            String[] data = new String[5];
-                            data[ASensorRawDataCollector.SENSORTYPE_INDEX] = "A";
-                            data[ASensorRawDataCollector.TIMESTAMP_INDEX] = getCurrentTimeStamp()+"";
-                            data[ASensorRawDataCollector.X_INDEX] = event.values[X_INDEX] + "";
-                            data[ASensorRawDataCollector.Y_INDEX] = event.values[Y_INDEX] + "";
-                            data[ASensorRawDataCollector.Z_INDEX] = event.values[Z_INDEX] + "";
+                                    String[] data = new String[5];
+                                    data[ASensorRawDataCollector.SENSORTYPE_INDEX] = "A";
+                                    data[ASensorRawDataCollector.TIMESTAMP_INDEX] = getCurrentTimeStamp()+"";
+                                    data[ASensorRawDataCollector.X_INDEX] = event.values[X_INDEX] + "";
+                                    data[ASensorRawDataCollector.Y_INDEX] = event.values[Y_INDEX] + "";
+                                    data[ASensorRawDataCollector.Z_INDEX] = event.values[Z_INDEX] + "";
 
-                            String strForValues = "X : " + event.values[X_INDEX] + "\n" + "Y : " + event.values[Y_INDEX] + "\n" + "Z : " + event.values[Z_INDEX];
-                            mTextView.setText(strForValues);
+                                    String strForValues = "X : " + event.values[X_INDEX] + "\n" + "Y : " + event.values[Y_INDEX] + "\n" + "Z : " + event.values[Z_INDEX];
+                                    mTextView.setText(strForValues);
 
-                            aCollector.addData( data );
+                                    aCollector.addData( data );
+                                }
+
+                                @Override
+                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                                }
+                            };
+                            mSensorManager.registerListener(aSensorEvent, mSAccelerometer, SensorManager.SENSOR_DELAY_UI);
                         }
 
-                        @Override
-                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-                        }
-                    };
-                    mSensorManager.registerListener(aSensorEvent, mSAccelerometer, SensorManager.SENSOR_DELAY_UI);
-                }
-
-                if( ( mSGyrosc = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) ) != null) {
-                    gSensorEvent = new SensorEventListener() {
-                        @Override
-                        public void onSensorChanged(SensorEvent event) {
+                        if( ( mSGyrosc = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) ) != null) {
+                            gSensorEvent = new SensorEventListener() {
+                                @Override
+                                public void onSensorChanged(SensorEvent event) {
 //                            Log.d(LOG_TAG," gyroscope event.values.length : " + event.values.length);
 
-                            String[] data = new String[5];
-                            data[GSensorRawDataCollector.SENSORTYPE_INDEX] = "G";
-                            data[GSensorRawDataCollector.TIMESTAMP_INDEX] = getCurrentTimeStamp()+"";
-                            data[GSensorRawDataCollector.X_INDEX] = event.values[X_INDEX] + "";
-                            data[GSensorRawDataCollector.Y_INDEX] = event.values[Y_INDEX] + "";
-                            data[GSensorRawDataCollector.Z_INDEX] = event.values[Z_INDEX] + "";
+                                    String[] data = new String[5];
+                                    data[GSensorRawDataCollector.SENSORTYPE_INDEX] = "G";
+                                    data[GSensorRawDataCollector.TIMESTAMP_INDEX] = getCurrentTimeStamp()+"";
+                                    data[GSensorRawDataCollector.X_INDEX] = event.values[X_INDEX] + "";
+                                    data[GSensorRawDataCollector.Y_INDEX] = event.values[Y_INDEX] + "";
+                                    data[GSensorRawDataCollector.Z_INDEX] = event.values[Z_INDEX] + "";
 
-                            String strForValues = "X : " + event.values[X_INDEX] + "\n" + "Y : " + event.values[Y_INDEX] + "\n" + "Z : " + event.values[Z_INDEX];
-                            mTextView.setText(strForValues);
+                                    String strForValues = "X : " + event.values[X_INDEX] + "\n" + "Y : " + event.values[Y_INDEX] + "\n" + "Z : " + event.values[Z_INDEX];
+                                    mTextView.setText(strForValues);
 
-                            gCollector.addData( data );
+                                    gCollector.addData( data );
+                                }
+
+                                @Override
+                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                                }
+                            };
+                            mSensorManager.registerListener(gSensorEvent, mSGyrosc, SensorManager.SENSOR_DELAY_UI);
                         }
+                    }
+                });
 
-                        @Override
-                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
-                        }
-                    };
-                    mSensorManager.registerListener(gSensorEvent, mSGyrosc, SensorManager.SENSOR_DELAY_UI);
-                }
+
+
+
+
             }
         });
     }
